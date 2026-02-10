@@ -1,3 +1,5 @@
+package webhook
+
 import (
 	"context"
 	"fmt"
@@ -200,7 +202,8 @@ func TestWebhook_SendWithInvalidURL(t *testing.T) {
 func TestWebhook_SendWithUnreachableHost(t *testing.T) {
 	t.Parallel()
 
-	w := New("http://192.0.2.1:8888", 1)
+	// Use an IP address that should not be reachable
+	w := New("http://192.0.2.1:8888", 1) // TEST-NET-1, reserved for documentation
 
 	err := w.Send(context.Background(), "", `{"data":"test"}`)
 
