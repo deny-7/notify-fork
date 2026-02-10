@@ -1,10 +1,10 @@
 package webhook
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -24,13 +24,15 @@ func New(webhook string, timeout int) *Webhook {
 	return w
 }
 
-// Send takes a JSON message and sends it to specified webook URL, subject is ignored
+// Send takes a JSON message and sends it to specified webook URL, subject is ignored.
 func (w Webhook) Send(ctx context.Context, _ string, message string) error {
+	jsonReader := strings.NewReader(message)
+
 	req, err := http.NewRequestWithContext(
 		ctx,
 		http.MethodPost,
 		w.webhook,
-		bytes.NewBuffer([]byte(message)),
+		jsonReader,
 	)
 	if err != nil {
 		return err
