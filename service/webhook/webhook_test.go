@@ -45,11 +45,23 @@ func TestWebhook_Send(t *testing.T) {
 			subject: "Test Subject",
 			message: `{"text":"Test Message"}`,
 			serverHandler: func(w http.ResponseWriter, r *http.Request) {
-				require.Equal(t, http.MethodPost, r.Method)
-				require.Equal(t, "application/json", r.Header.Get("Content-Type"))
+				if r.Method != http.MethodPost {
+					http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+					return
+				}
+				if r.Header.Get("Content-Type") != "application/json" {
+					http.Error(w, "Invalid content type", http.StatusBadRequest)
+					return
+				}
 				body, err := io.ReadAll(r.Body)
-				require.NoError(t, err)
-				require.Equal(t, `{"text":"Test Message"}`, string(body))
+				if err != nil {
+					http.Error(w, "Error reading body", http.StatusInternalServerError)
+					return
+				}
+				if string(body) != `{"text":"Test Message"}` {
+					http.Error(w, "Unexpected body", http.StatusBadRequest)
+					return
+				}
 				w.WriteHeader(http.StatusOK)
 			},
 			expectedError: "",
@@ -117,9 +129,15 @@ func TestWebhook_Send(t *testing.T) {
 			message: `{"data":"test"}`,
 			serverHandler: func(w http.ResponseWriter, r *http.Request) {
 				body, err := io.ReadAll(r.Body)
-				require.NoError(t, err)
+				if err != nil {
+					http.Error(w, "Error reading body", http.StatusInternalServerError)
+					return
+				}
 				// Subject should not be in the request body
-				require.False(t, strings.Contains(string(body), "This Subject Should Be Ignored"))
+				if strings.Contains(string(body), "This Subject Should Be Ignored") {
+					http.Error(w, "Subject found in body", http.StatusBadRequest)
+					return
+				}
 				w.WriteHeader(http.StatusOK)
 			},
 			expectedError: "",
@@ -186,7 +204,12 @@ func TestWebhook_SendWithTimeout(t *testing.T) {
 
 	require.Error(t, err)
 	// Check that it's a timeout error
-	require.True(t, strings.Contains(err.Error(), "context deadline exceeded") || strings.Contains(err.Error(), "timeout"), fmt.Sprintf("Unexpected error: %v", err))
+	require.True(
+		t,
+		strings.Contains(err.Error(), "context deadline exceeded") ||
+			strings.Contains(err.Error(), "timeout"),
+		fmt.Sprintf("Unexpected error: %v", err),
+	)
 }
 
 func TestWebhook_SendWithInvalidURL(t *testing.T) {
